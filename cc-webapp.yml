@@ -1,0 +1,144 @@
+---
+- name: Deploy assignment3 to host
+  hosts: assignment3-1
+  remote_user: student
+  tasks: 
+  - name: Install pip module openshift
+    pip:
+      name: openshift
+  - name: Create a k8s namespace
+    k8s:
+      name: cc-assignment3
+      api_version: v1
+      kind: Namespace
+      state: present
+  - name: Deploy Backend Service
+    k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Deployment
+        metadata:
+          name: cc-backend-service-deployment
+          namespace: cc-assignment3
+          labels:
+            app: cc-backend
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: cc-backend
+          template:
+            metadata:
+              labels:
+                app: cc-backend
+            spec:
+              containers:
+              - name: cc-backend-service
+                image: michaelraring/cc-assignment3:backend
+                ports:
+                - containerPort: 80
+                readinessProbe:
+                  httpGet:
+                    # when "host" is not defined, "PodIP" will be used
+                    # host: my-host
+                    path: /ready
+                    port: 80
+                    httpHeaders:
+                    - name: CC-Ready
+                      value: Backend
+                livenessProbe:
+                  httpGet:
+                    # when "host" is not defined, "PodIP" will be used
+                    # host: my-host
+                    path: /ready
+                    port: 80
+                    httpHeaders:
+                    - name: CC-Ready
+                      value: Backend
+  - name: Create Backend Service
+    k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: cc-backend-service
+          namespace: cc-assignment3
+          labels:
+            app: cc-backend
+            service: web
+        spec:
+          type: ClusterIP
+          selector:
+            app: cc-backend
+            service: web
+          ports:
+          - protocol: TCP
+            targetPort: 80
+            port: 80
+  - name: Deploy Frontend Service
+    k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Deployment
+        metadata:
+          name: cc-frontend-service-deployment
+          namespace: cc-assignment3
+          labels:
+            app: cc-frontend
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: cc-frontend
+          template:
+            metadata:
+              labels:
+                app: cc-frontend
+            spec:
+              containers:
+              - name: cc-frontend-service
+                image: michaelraring/cc-assignment3:frontend
+                ports:
+                - containerPort: 80
+                readinessProbe:
+                  httpGet:
+                    # when "host" is not defined, "PodIP" will be used
+                    # host: my-host
+                    path: /ready
+                    port: 80
+                    httpHeaders:
+                    - name: CC-Ready
+                      value: Frontend
+                livenessProbe:
+                  httpGet:
+                    # when "host" is not defined, "PodIP" will be used
+                    # host: my-host
+                    path: /ready
+                    port: 80
+                    httpHeaders:
+                    - name: CC-Ready
+                      value: Frontend
+  - name: Create Frontend Service
+    k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: cc-frontend-service
+          namespace: cc-assignment3
+          labels:
+            app: cc-frontend
+            service: web
+        spec:
+          type: NodePort
+          selector:
+            app: cc-frontend
+            service: web
+          ports:
+          - protocol: TCP
+            targetPort: 80
+            port: 80
